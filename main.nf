@@ -18,10 +18,10 @@ def helpMessage() {
 
     Mandatory arguments:
       --project [str]               BaseSpace project name
-      --samples [file]              List of samples ids, one per line
+      --run [str]                   BaseSpace run name (ExperimentName, not RunId)
 
     Other options:
-      --outdir [file]               The output directory where the results will be saved
+      --outdir [file]               The output directory where the results will be saved (sub-directory RunId will be created)
       -name [str]                   Name for the pipeline run. If not specified, Nextflow will automatically generate a random mnemonic
 
     """.stripIndent()
@@ -44,14 +44,42 @@ if (!(workflow.runName ==~ /[a-z]+_[a-z]+/)) {
     custom_runName = workflow.runName
 }
 
-if (params.samples) {
-    ch_input = file(params.samples, checkIfExists: true)
-} else {
-    exit 1, "List of samples not specified!"
-}
-
 if (!params.project) {
     exit 1, "Project name not specified!"
+}
+
+if (!params.run) {
+    exit 1, "Run name not specified"
+}
+
+/*
+ * STEP 1 - Get the run name (from the machine)
+ */
+process get_run_name {
+
+  input:
+
+  output:
+  stdout into ch_run_name
+
+  """
+  bs list run --filter-field=ExperimentName --filter-term=${params.run} --format=csv | grep -v ExperimentName | cut -d ',' -f 1
+  """
+}
+
+/*
+ * STEP 2 - Get the list of BioSample ids for this run
+ */
+process get_biosamples {
+  
+  input:
+  
+  output:
+  file('biosample_ids.txt') into ch_input
+
+  """
+  bs run property get --property-name="Input.BioSamples" --name=${params.run} --terse > biosample_ids.txt
+  """
 }
 
 /*
@@ -59,10 +87,10 @@ if (!params.project) {
  */
 ch_input
     .splitText()
-    .into { ch_samples }
+    .set { ch_samples }
 
 /*
- * STEP 1 - Download files for each sample
+ * STEP 3 - Download files for each sample
  */
 process download {
 
@@ -70,15 +98,20 @@ process download {
     publishDir "${params.outdir}"
 
     input:
-    set val(name) from ch_samples
+    set val(biosample_id) from ch_samples
+    set val(run_name) from ch_run_name
 
     output:
-    set val(name), file('*.fastq.gz') into ch_
+    file('*')
 
     script:
     """
-    bs-cp --write-md5 //./Projects/${params.project}/samples/${name} ./
-    md5sum --check md5sum.txt > ${name}.md5_check
-    mv md5sum.txt ${name}.md5sum.txt
+    mkdir ${run_name}
+    cd ${run_name}
+    biosample_name=`bs list biosample --filter-field=Id --format csv --template='{{.BioSampleName}}' --filter-term=${biosample_id}`
+    echo "bs-cp --write-md5 //./Projects/${params.project}/samples/\${biosample_name} ./"
     """
 }
+
+/*    md5sum --check md5sum.txt > ${name}.md5_check
+    mv md5sum.txt ${name}.md5sum.txt*/
