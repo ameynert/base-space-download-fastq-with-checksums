@@ -95,7 +95,7 @@ ch_input
 process download {
 
     maxForks 1
-    publishDir "${params.outdir}"
+    publishDir "${params.outdir}/${run_name}"
 
     input:
     val(biosample_id) from ch_samples
@@ -106,8 +106,6 @@ process download {
 
     script:
     """
-    mkdir ${run_name}
-    cd ${run_name}
     biosample_name=`bs list biosample --filter-field=Id --format csv --template='{{.BioSampleName}}' --filter-term=${biosample_id}`
     bs-cp --write-md5 //./Projects/${params.project}/samples/\${biosample_name} ./
     md5sum --check md5sum.txt > \${biosample_name}.md5_check
