@@ -98,8 +98,8 @@ process download {
     publishDir "${params.outdir}"
 
     input:
-    set val(biosample_id) from ch_samples
-    set val(run_name) from ch_run_name
+    val(biosample_id) from ch_samples
+    val(run_name) from ch_run_name
 
     output:
     file('*')
@@ -109,9 +109,9 @@ process download {
     mkdir ${run_name}
     cd ${run_name}
     biosample_name=`bs list biosample --filter-field=Id --format csv --template='{{.BioSampleName}}' --filter-term=${biosample_id}`
-    echo "bs-cp --write-md5 //./Projects/${params.project}/samples/\${biosample_name} ./"
+    bs-cp --write-md5 //./Projects/${params.project}/samples/\${biosample_name} ./
+    md5sum --check md5sum.txt > \${biosample_name}.md5_check
+    mv md5sum.txt \${biosample_name}.md5sum.txt
     """
 }
 
-/*    md5sum --check md5sum.txt > ${name}.md5_check
-    mv md5sum.txt ${name}.md5sum.txt*/
