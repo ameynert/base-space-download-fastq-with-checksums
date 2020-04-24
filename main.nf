@@ -95,7 +95,7 @@ ch_input
 process download {
 
     maxForks 1
-    publishDir "${params.outdir}/${run_name}"
+    publishDir "${params.outdir}/${run_name}", mode: 'move'
 
     input:
     val(biosample_id) from ch_samples
