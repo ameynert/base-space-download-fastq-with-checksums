@@ -95,7 +95,7 @@ ch_input
 process download {
 
     maxForks 1
-    publishDir "${params.outdir}/${run_name}", mode: 'move'
+    publishDir "${params.outdir}/${run_name - ~/\s+/}", mode: 'move'
 
     input:
     val(biosample_id) from ch_samples
@@ -112,4 +112,3 @@ process download {
     mv md5sum.txt \${biosample_name}.md5sum.txt
     """
 }
-
