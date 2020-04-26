@@ -76,9 +76,14 @@ process get_biosamples {
   
   output:
   file('biosample_ids.txt') into ch_input
+  file('biosample_names.txt') into ch_sample_names
 
   """
   bs run property get --property-name="Input.BioSamples" --name=${params.run} --terse > biosample_ids.txt
+  for id in `cat biosample_ids.txt`
+  do
+    bs list biosample --filter-field=Id --format csv --template='{{.BioSampleName}}' --filter-term=\$id >> biosample_names.txt
+  done
   """
 }
 
@@ -100,6 +105,7 @@ process download {
     input:
     val(biosample_id) from ch_samples
     val(run_name) from ch_run_name
+    file(samples) from ch_sample_names
 
     output:
     file('*')
@@ -110,5 +116,6 @@ process download {
     bs-cp --write-md5 //./Projects/${params.project}/samples/\${biosample_name} ./
     md5sum --check md5sum.txt > \${biosample_name}.md5_check
     mv md5sum.txt \${biosample_name}.md5sum.txt
+    cat ${samples} > samples.txt
     """
 }
