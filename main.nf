@@ -99,6 +99,7 @@ ch_input
  */
 process download {
 
+    validExitStatus 0,1
     maxForks 1
     publishDir "${params.outdir}/${run_name - ~/\s+/}", mode: 'move'
 
@@ -113,7 +114,7 @@ process download {
     script:
     """
     biosample_name=`bs list biosample --filter-field=Id --format csv --template='{{.BioSampleName}}' --filter-term=${biosample_id}`
-    bs-cp --write-md5 //./Projects/${params.project}/samples/\${biosample_name} ./
+    bs-cp --write-md5 //./Projects/${params.project}/samples/\${biosample_name} ./ 2> \${biosample_name}.err
     md5sum --check md5sum.txt > \${biosample_name}.md5_check
     mv md5sum.txt \${biosample_name}.md5sum.txt
     cat ${samples} > samples.txt
