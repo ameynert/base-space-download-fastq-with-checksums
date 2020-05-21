@@ -19,6 +19,7 @@ def helpMessage() {
     Mandatory arguments:
       --project [str]               BaseSpace project name
       --run [str]                   BaseSpace run name (ExperimentName, not RunId)
+      --access_token[str]           BaseSpace access token for authorized account
 
     Other options:
       --outdir [file]               The output directory where the results will be saved (sub-directory RunId will be created)
@@ -68,34 +69,47 @@ process get_run_name {
 }
 
 /*
- * STEP 2 - Get the list of BioSample ids for this run
+ * STEP 2 - Get the run id (from the machine)
  */
-process get_biosamples {
-  
+process get_run_id {
+
   input:
-  
+
   output:
-  file('biosample_ids.txt') into ch_input
-  file('biosample_names.txt') into ch_sample_names
+  stdout into ch_run_id
 
   """
-  bs run property get --property-name="Input.BioSamples" --name=${params.run} --terse > biosample_ids.txt
-  for id in `cat biosample_ids.txt`
-  do
-    bs list biosample --filter-field=Id --format csv --template='{{.BioSampleName}}' --filter-term=\$id >> biosample_names.txt
-  done
+  bs list run --filter-field=ExperimentName --filter-term=${params.run} --format=csv | grep -v ExperimentName | cut -d ',' -f 2
+  """
+}
+
+
+/*
+ * STEP 3 - Get the list of sample ids and names for the run
+ */
+process get_samples {
+  
+  input:
+  val(run_id) from ch_run_id
+ 
+  output:
+  stdout into ch_samples
+
+  """
+  get_sample_ids.py ${params.access_token} ${run_id - ~/\s+/} | grep -v Undetermined
   """
 }
 
 /*
  * Create channel for input samples
  */
-ch_input
-    .splitText()
-    .set { ch_samples }
+ch_samples
+    .splitCsv()
+    .map { row -> tuple(row[0], row[1]) }
+    .set { ch_biosamples }
 
 /*
- * STEP 3 - Download files for each sample
+ * STEP 4 - Download files for each sample
  */
 process download {
 
@@ -104,19 +118,39 @@ process download {
     publishDir "${params.outdir}/${run_name - ~/\s+/}", mode: 'move'
 
     input:
-    val(biosample_id) from ch_samples
+    tuple val(sample_id), val(biosample_id) from ch_biosamples
     val(run_name) from ch_run_name
-    file(samples) from ch_sample_names
 
     output:
-    file('*')
+    file('*err')
+    file('*md5*')
+    file('sample.txt') into ch_sample_files
 
     script:
     """
-    biosample_name=`bs list biosample --filter-field=Id --format csv --template='{{.BioSampleName}}' --filter-term=${biosample_id}`
-    bs-cp --write-md5 //./Projects/${params.project}/samples/\${biosample_name} ./ 2> \${biosample_name}.err
-    md5sum --check md5sum.txt > \${biosample_name}.md5_check
-    mv md5sum.txt \${biosample_name}.md5sum.txt
-    cat ${samples} > samples.txt
+    bs-cp --write-md5 //./Projects/${params.project}/samples/${sample_id} ./ 2> ${biosample_id}.err
+    md5sum --check md5sum.txt > ${biosample_id}.md5_check
+    mv md5sum.txt ${biosample_id}.md5sum.txt
+    echo ${biosample_id} > samples.txt
+    """
+}
+
+/*
+ * STEP 5 - Collect the sample names
+ */
+process collect_samples {
+
+    publishDir "${params.outdir}/${run_name - ~/\s+/}", mode: 'move'
+
+    input:
+    file(files) from ch_sample_files.collect()
+
+    output:
+    file(sample_file)
+
+    script:
+    sample_file = "samples.txt"
+    """
+    cat ${files} >> ${sample_file}
     """
 }
