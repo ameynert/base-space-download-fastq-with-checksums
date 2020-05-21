@@ -131,7 +131,7 @@ process download {
     bs-cp --write-md5 //./Projects/${params.project}/samples/${sample_id} ./ 2> ${biosample_id}.err
     md5sum --check md5sum.txt > ${biosample_id}.md5_check
     mv md5sum.txt ${biosample_id}.md5sum.txt
-    echo ${biosample_id} > samples.txt
+    echo ${biosample_id} > sample.txt
     """
 }
 
