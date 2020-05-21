@@ -109,29 +109,42 @@ ch_samples
     .set { ch_biosamples }
 
 /*
+ * Split channel for run name
+ */
+ch_run_name
+    .into { ch_run_name1; ch_run_name2 }
+
+/*
  * STEP 4 - Download files for each sample
  */
 process download {
 
     validExitStatus 0,1
     maxForks 1
-    publishDir "${params.outdir}/${run_name - ~/\s+/}", mode: 'move'
+    publishDir "${params.outdir}/${run_name - ~/\s+/}", mode: 'move',
+              saveAs: {filename ->
+                  if (filename.indexOf("err") >= 0) filename
+                  else if (filename.indexOf("md5") >= 0) filename
+                  else if (filename.indexOf("fastq") >= 0) filename
+                  else null
+              }
 
     input:
     tuple val(sample_id), val(biosample_id) from ch_biosamples
-    val(run_name) from ch_run_name
+    val(run_name) from ch_run_name1
 
     output:
+    file('*fastq*')
     file('*err')
     file('*md5*')
-    file('sample.txt') into ch_sample_files
+    file('*.sample.txt') into ch_sample_files
 
     script:
     """
     bs-cp --write-md5 //./Projects/${params.project}/samples/${sample_id} ./ 2> ${biosample_id}.err
     md5sum --check md5sum.txt > ${biosample_id}.md5_check
     mv md5sum.txt ${biosample_id}.md5sum.txt
-    echo ${biosample_id} > sample.txt
+    echo ${biosample_id} > ${biosample_id}.sample.txt
     """
 }
 
@@ -143,6 +156,7 @@ process collect_samples {
     publishDir "${params.outdir}/${run_name - ~/\s+/}", mode: 'move'
 
     input:
+    val(run_name) from ch_run_name2
     file(files) from ch_sample_files.collect()
 
     output:
