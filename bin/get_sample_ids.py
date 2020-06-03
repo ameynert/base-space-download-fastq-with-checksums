@@ -16,17 +16,19 @@ def get_sample_ids(access_token, run_id):
     request = requests.get(api_endpoint.format(run_id, access_token))
     output = json.loads(request.text)
 
-    if output["Response"]:
+    if output.has_key("Response"):
         response = output["Response"]
-        if response["Properties"]:
+        if response.has_key("Properties"):
             properties = response["Properties"]
-            if properties["Items"]:
+            if properties.has_key("Items"):
                 items = properties["Items"]
                 for item in items:
                     if item["Name"] == "Output.Samples":
                         sample_items = item["Items"]
                         for sample in sample_items:
                             print(sample["Id"] + "," + sample["Name"])
+    else:
+        print(json.dumps(output, indent=4, sort_keys=True))
 
 if __name__ == "__main__":
    parser = argparse.ArgumentParser(description=""" Fetches the output sample ids from a BaseSpace run using the V1 API.""")
