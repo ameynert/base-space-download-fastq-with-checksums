@@ -22,11 +22,20 @@ def get_sample_ids(access_token, run_id):
             properties = response["Properties"]
             if properties.has_key("Items"):
                 items = properties["Items"]
+		has_output_samples = 0
                 for item in items:
                     if item["Name"] == "Output.Samples":
+			has_output_samples = 1
                         sample_items = item["Items"]
                         for sample in sample_items:
                             print(sample["Id"] + "," + sample["Name"])
+		if not has_output_samples:
+		    print("No Output.Samples item found in response")
+		    print(json.dumps(output, indent=4, sort_keys=True))
+	    else:
+		print(json.dumps(output, indent=4, sort_keys=True))
+	else:
+	    print(json.dumps(output, indent=4, sort_keys=True))
     else:
         print(json.dumps(output, indent=4, sort_keys=True))
 
