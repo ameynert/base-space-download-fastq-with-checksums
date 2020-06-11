@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 import re
 import os
 import sys
@@ -30,14 +30,18 @@ def get_sample_ids(access_token, run_id):
                         for sample in sample_items:
                             print(sample["Id"] + "," + sample["Name"])
 		if not has_output_samples:
-		    print("No Output.Samples item found in response")
-		    print(json.dumps(output, indent=4, sort_keys=True))
+		    print("No Output.Samples item found in response", file=sys.stderr)
+		    print(json.dumps(output, indent=4, sort_keys=True), file=sys.stderr)
+		    exit(1)
 	    else:
-		print(json.dumps(output, indent=4, sort_keys=True))
+		print(json.dumps(output, indent=4, sort_keys=True), file=sys.stderr)
+		exit(1)
 	else:
-	    print(json.dumps(output, indent=4, sort_keys=True))
+	    print(json.dumps(output, indent=4, sort_keys=True), file=sys.stderr)
+	    exit(1)
     else:
-        print(json.dumps(output, indent=4, sort_keys=True))
+        print(json.dumps(output, indent=4, sort_keys=True), file=sys.stderr)
+	exit(1)
 
 if __name__ == "__main__":
    parser = argparse.ArgumentParser(description=""" Fetches the output sample ids from a BaseSpace run using the V1 API.""")
