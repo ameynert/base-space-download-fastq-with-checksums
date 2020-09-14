@@ -24,6 +24,7 @@ def helpMessage() {
     Other options:
       --outdir [file]               The output directory where the results will be saved (sub-directory RunId will be created)
       -name [str]                   Name for the pipeline run. If not specified, Nextflow will automatically generate a random mnemonic
+      --dragen                      FASTQ was output from DRAGEN BaseSpace component
 
     """.stripIndent()
 }
@@ -51,6 +52,11 @@ if (!params.project) {
 
 if (!params.run) {
     exit 1, "Run name not specified"
+}
+
+dragen_flag = ""
+if (params.dragen) {
+  dragen_flag = "-d"
 }
 
 /*
@@ -83,22 +89,21 @@ process get_run_id {
   """
 }
 
-
 /*
  * STEP 3 - Get the list of sample ids and names for the run
  */
-process get_samples {
+  process get_samples {
   
-  input:
-  val(run_id) from ch_run_id
+    input:
+    val(run_id) from ch_run_id
  
-  output:
-  stdout into ch_samples
+    output:
+    stdout into ch_samples
 
-  """
-  get_sample_ids.py ${params.access_token} ${run_id - ~/\s+/} | grep -v Undetermined
-  """
-}
+    """
+    get_sample_ids.py ${dragen_flag} ${params.access_token} ${run_id - ~/\s+/} | grep -v Undetermined | tee samples.txt
+    """
+  }
 
 /*
  * Create channel for input samples
@@ -109,10 +114,16 @@ ch_samples
     .set { ch_biosamples }
 
 /*
+ * Split channel for input samples
+ */
+ch_biosamples
+    .into { ch_biosamples1; ch_biosamples2 }
+
+/*
  * Split channel for run name
  */
 ch_run_name
-    .into { ch_run_name1; ch_run_name2 }
+    .into { ch_run_name1; ch_run_name2; ch_run_name3 }
 
 /*
  * STEP 4 - Download files for each sample
@@ -130,18 +141,59 @@ process download {
               }
 
     input:
-    tuple val(sample_id), val(biosample_id) from ch_biosamples
+    tuple val(sample_id), val(biosample_id) from ch_biosamples1
     val(run_name) from ch_run_name1
 
     output:
     file('*fastq*')
     file('*err')
     file('*md5*')
-    file('*.sample.txt') into ch_sample_files
+    file('*.sample.txt') into ch_sample_files1
+
+    when:
+    !params.dragen
 
     script:
     """
     bs-cp --write-md5 //./Projects/${params.project}/samples/${sample_id} ./ 2> ${biosample_id}.err
+    md5sum --check md5sum.txt > ${biosample_id}.md5_check
+    mv md5sum.txt ${biosample_id}.md5sum.txt
+    echo ${biosample_id} > ${biosample_id}.sample.txt
+    """
+}
+
+/*
+ * STEP 4 - Download DRAGEN samples
+ */
+process download_dragen {
+
+    validExitStatus 0,1
+    maxForks 1
+    publishDir "${params.outdir}/${run_name - ~/\s+/}", mode: 'move',
+              saveAs: {filename ->
+                  if (filename.indexOf("err") >= 0) filename
+                  else if (filename.indexOf("md5") >= 0) filename
+                  else if (filename.indexOf("fastq") >= 0) filename
+                  else null
+              }
+
+    input:
+    tuple val(sample_id), val(biosample_id) from ch_biosamples2
+    val(run_name) from ch_run_name2
+
+    output:
+    file('*fastq*')
+    file('*err')
+    file('*md5*')
+    file('*.sample.txt') into ch_sample_files2
+
+    when:
+    params.dragen
+
+    script:
+    """
+    dataset_id=`bs list datasets --project-id=${params.project} --is-type=common.fastq --filter-term=${biosample_id}  --format=csv | grep -v DataSetType | cut -f 2 -d ','`
+    bs-cp --write-md5 //./Datasets/\${dataset_id} ./ 2> ${biosample_id}.err
     md5sum --check md5sum.txt > ${biosample_id}.md5_check
     mv md5sum.txt ${biosample_id}.md5sum.txt
     echo ${biosample_id} > ${biosample_id}.sample.txt
@@ -156,8 +208,8 @@ process collect_samples {
     publishDir "${params.outdir}/${run_name - ~/\s+/}", mode: 'move'
 
     input:
-    val(run_name) from ch_run_name2
-    file(files) from ch_sample_files.collect()
+    val(run_name) from ch_run_name3
+    file(files) from ch_sample_files1.collect().concat(ch_sample_files2.collect())
 
     output:
     file(sample_file)
