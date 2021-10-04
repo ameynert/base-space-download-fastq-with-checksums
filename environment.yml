@@ -1,4 +1,4 @@
-name: ameynert-bam2fastq-dev
+name: base-space-download-fastq-with-checksums
 channels:
  - conda-forge
  - bioconda
