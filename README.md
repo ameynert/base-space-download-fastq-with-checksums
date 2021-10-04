@@ -4,11 +4,14 @@ Downloads FASTQ files from Illumina BaseSpace via the CLI with md5 checksums.
 
 ## Requirements
 
+Requires a Conda installation.
+
 Requires bs and bs-cp from [BaseSpace Sequence Hub CLI](https://developer.basespace.illumina.com/docs/content/documentation/cli/cli-overview) to be on the path - there are no Conda packages available.
 
-*For University of Edinburgh users only: the CLI is in the module system.*
+*For University of Edinburgh users only: Anaconda and the CLI is in the module system.*
 
 ```
+module load anaconda
 module load igmm/apps/BaseSpaceCLI/0.10.7
 ```
 
