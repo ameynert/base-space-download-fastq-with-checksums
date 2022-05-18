@@ -16,11 +16,11 @@ def get_sample_ids(access_token, run_id, dragen):
     request = requests.get(api_endpoint.format(run_id, access_token))
     output = json.loads(request.text)
 
-    if output.has_key("Response"):
+    if "Response" in output:
         response = output["Response"]
-        if response.has_key("Properties"):
+        if "Properties" in response:
             properties = response["Properties"]
-            if properties.has_key("Items"):
+            if "Items" in properties:
                 items = properties["Items"]
                 has_output_samples = 0
                 if dragen:
