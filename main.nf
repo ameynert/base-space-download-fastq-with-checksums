@@ -192,7 +192,7 @@ process download_dragen {
 
     script:
     """
-    dataset_id=`bs list datasets --project-id=${params.project} --is-type=common.fastq --filter-term=${biosample_id}  --format=csv | grep -v DataSetType | cut -f 2 -d ','`
+    dataset_id=`bs list datasets --project-id=${params.project} --is-type=common.fastq --filter-term=${biosample_id}  --format=csv | grep -v DataSetType | cut -f 2 -d ',' | head -n 1`
     bs-cp --write-md5 //./Datasets/\${dataset_id} ./ 2> ${biosample_id}.err
     md5sum --check md5sum.txt > ${biosample_id}.md5_check
     mv md5sum.txt ${biosample_id}.md5sum.txt
